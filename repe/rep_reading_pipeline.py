@@ -53,15 +53,23 @@ class RepReadingPipeline(Pipeline):
         
         return preprocess_params, forward_params, postprocess_params
  
-    def preprocess(
-            self, 
-            inputs: Union[str, List[str], List[List[str]]],
-            **tokenizer_kwargs):
+    def preprocess(self, prompt, image=None, timeout=None):
+        from transformers.image_utils import load_image
+        
+        if not isinstance(prompt, str):
+            raise ValueError(
+                f"Received an invalid text input, got - {type(prompt)} - but expected a single string. "
+                "Note also that one single text can be provided for conditional image to text generation."
+            )
+        model_inputs = self.tokenizer(prompt, return_tensors=self.framework)
+        
+        if image is not None:
+            image = load_image(image, timeout=timeout)
+            image_inputs = self.image_processor(images=image, return_tensors=self.framework)
+            model_inputs.update(image_inputs)
 
-        if self.image_processor:
-            return self.image_processor(inputs, add_end_of_utterance_token=False, return_tensors="pt")
-        return self.tokenizer(inputs, return_tensors=self.framework, **tokenizer_kwargs)
-
+        return model_inputs
+    
     def postprocess(self, outputs):
         return outputs
 
